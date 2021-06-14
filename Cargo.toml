@@ -1,0 +1,4 @@
+[package]
+name = "scraptor"
+version = "0.1.0"
+description = "A cross platform screen capture crate intended for low-latency video streaming"
