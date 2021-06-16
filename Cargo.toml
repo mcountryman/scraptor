@@ -1,4 +1,16 @@
 [package]
 name = "scraptor"
 version = "0.1.0"
+edition = "2018"
 description = "A cross platform screen capture crate intended for low-latency video streaming"
+
+[dependencies]
+# errors
+anyhow = "1.0"
+thiserror = "1.0"
+
+# interop
+windows = "0.11.0"
+
+[build-dependencies]
+windows = "0.11.0"
