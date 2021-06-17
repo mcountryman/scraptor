@@ -1,3 +1,4 @@
+/// An error that occurs when reading frame information
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum FrameError {
   #[error("The operation needs to block to complete, but the blocking operation was requested to not occur.")]

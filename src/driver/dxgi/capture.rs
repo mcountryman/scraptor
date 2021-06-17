@@ -1,3 +1,5 @@
+//! Provides interface to capture desktop frames using Desktop Duplication API
+
 use super::{display::DxgiDisplay, errors::FrameError, frame::DxgiFrame};
 use crate::{
   driver::bindings::Windows::Win32::{
@@ -18,6 +20,7 @@ use crate::{
 use std::{slice, time::Duration};
 use windows::Interface;
 
+/// Captures frames using windows Desktop Duplication API
 #[derive(Debug, Clone)]
 pub struct DxgiDisplayCapturer {
   rect: DXGI_MAPPED_RECT,

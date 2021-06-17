@@ -1,3 +1,5 @@
+//! Provides interface to get display information for Desktop Duplication API frame capture.
+
 use super::{capture::DxgiDisplayCapturer, frame::DxgiFrame};
 use crate::{
   driver::bindings::Windows::Win32::Graphics::Dxgi::{
@@ -10,6 +12,7 @@ use crate::{
 use std::{hint::unreachable_unchecked, time::Duration};
 use windows::Interface;
 
+/// A Dxgi display
 #[derive(Debug, Clone)]
 pub struct DxgiDisplay {
   pub(super) desc: DXGI_OUTPUT_DESC,
@@ -19,21 +22,23 @@ pub struct DxgiDisplay {
 }
 
 impl DxgiDisplay {
+  /// The name of the display
   pub fn name(&self) -> String {
     String::from_utf16_lossy(&self.desc.DeviceName)
   }
 
+  /// The width of the display
   pub const fn width(&self) -> usize {
     (self.desc.DesktopCoordinates.right - self.desc.DesktopCoordinates.left) as usize
   }
 
+  /// The height of the display
   pub const fn height(&self) -> usize {
     (self.desc.DesktopCoordinates.bottom - self.desc.DesktopCoordinates.top) as usize
   }
 
-  unsafe fn capturer_mut<'a, 'b: 'a>(
-    &'b mut self,
-  ) -> Result<&'a mut DxgiDisplayCapturer, FrameError> {
+  /// Gets or initializes a [`DxgiDisplayCapturer`]
+  unsafe fn capturer_mut(&mut self) -> Result<&mut DxgiDisplayCapturer, FrameError> {
     if self.capturer.is_none() {
       self.capturer = Some(DxgiDisplayCapturer::new(self).unwrap());
     }
@@ -70,6 +75,7 @@ impl<'frame> Display<'frame> for DxgiDisplay {
   }
 }
 
+/// A Dxgi display iterator where first display is the primary display
 #[derive(Debug, Clone)]
 pub struct DxgiDisplays {
   factory: IDXGIFactory1,
@@ -88,14 +94,19 @@ impl DxgiDisplays {
     })
   }
 
+  /// Get the next display
+  ///
+  /// # Safety
+  /// Calls to windows API
   unsafe fn next_display(&mut self) -> windows::Result<Option<DxgiDisplay>> {
-    // Read in adapter if not already read
+    // Read next adapter if current one is `None`
     if self.adapter.is_none() {
       let result = self
         .factory
         .EnumAdapters1(self.adapter_idx, &mut self.adapter);
 
-      // If display adapter is not found, return `None`
+      // If display adapter at current adapter_idx isn't found assume that there are no
+      // more to iterate and return `None`
       if result == DXGI_ERROR_NOT_FOUND {
         return Ok(None);
       }
@@ -103,26 +114,34 @@ impl DxgiDisplays {
       result.ok()?;
     }
 
-    // Check if adapter is `None`
     match &self.adapter {
+      // This _shouldn't_ happen but, if it does assume that there are no more adapters.
       None => Ok(None),
-      // We have an adapter, now try reading outputs
       Some(adapter) => {
-        // Read in output
+        // Read in output at display_idx
         let mut output = None;
         let result = adapter.EnumOutputs(self.display_idx, &mut output);
 
         // If display output is not found, return `None`
         if result == DXGI_ERROR_NOT_FOUND {
-          return Ok(None);
+          // No more outputs for this adapter, increment adapter_idx, reset display_idx
+          // for next adapter, and set adapter to `None` so we can load next iter
+
+          self.adapter = None;
+          self.adapter_idx += 1;
+          self.display_idx = 0;
+
+          return self.next_display();
         }
 
+        // Ensure `EnumOutputs` didn't error
         result.ok()?;
 
         match output {
           None => {
-            // No more outputs for this adapter, increment adapter_idx, reset display_idx
+            // Adapter gave us a `None` when checking output at display_idx, reset display_idx
             // for next adapter, and set adapter to `None` so we can load next iter
+
             self.adapter = None;
             self.adapter_idx += 1;
             self.display_idx = 0;
