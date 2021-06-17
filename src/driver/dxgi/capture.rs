@@ -29,19 +29,21 @@ pub struct DxgiDisplayCapturer {
 }
 
 impl DxgiDisplayCapturer {
-  /// Create [`DxgiDisplayCapturer`] for supplied display.
+  /// Create [`DxgiDisplayCapturer`] for supplied display
   ///
   /// # Arguments
-  /// * `display` - The display to create capturer for.
+  /// * `display` - The display to create capturer for
   ///
   /// # Safety
-  /// Heavy use of unsafe calls to DirectX 11 and DXGI.
+  /// Heavy use of unsafe calls to DirectX 11 and DXGI
   pub unsafe fn new(display: &DxgiDisplay) -> Result<Self, FrameError> {
     let mut level = D3D_FEATURE_LEVEL_9_1;
     let mut device = None;
     let mut context = None;
     let mut duplication = None;
 
+    // Create D3D11 device with debug support, an unknown driver type, and all feature
+    // levels
     D3D11CreateDevice(
       display.adapter.clone(),
       D3D_DRIVER_TYPE_UNKNOWN,
@@ -56,17 +58,21 @@ impl DxgiDisplayCapturer {
     )
     .ok()?;
 
+    // Ensure device and device context were in fact initialized although this shouldn't
+    // really happen
     let device = device.ok_or(FrameError::None)?;
     let context = context.ok_or(FrameError::None)?;
 
+    // Initialize output duplication API and ensure initialization didn't give us `None`
     display
       .output
       .DuplicateOutput(device.clone(), &mut duplication)
       .ok()?;
-
     let duplication = duplication.ok_or(FrameError::None)?;
-    let mut desc = DXGI_OUTDUPL_DESC::default();
 
+    // Get output duplication metadata for checking desktop bounds and if frames will be
+    // in memory or not
+    let mut desc = DXGI_OUTDUPL_DESC::default();
     duplication.GetDesc(&mut desc);
 
     Ok(Self {
@@ -79,14 +85,14 @@ impl DxgiDisplayCapturer {
     })
   }
 
-  /// Read next from from DXGI.
+  /// Read next from from DXGI
   ///
   /// # Arguments
   /// * `timeout` - The amount of time that this method waits for a new frame before it
-  /// returns to the caller.
+  /// returns to the caller
   ///
   /// # Safety
-  /// Heavy use of unsafe calls to DirectX 11 and DXGI.
+  /// Heavy use of unsafe calls to DirectX 11 and DXGI
   pub unsafe fn get_frame<'a, 'b: 'a>(
     &'b mut self,
     timeout: Duration,
@@ -94,7 +100,9 @@ impl DxgiDisplayCapturer {
     let mut frame = DXGI_OUTDUPL_FRAME_INFO::default();
     let mut resource = None;
 
-    // Check if frame was already release before making calls
+    // In order for `AcquireNextFrame` to work properly we need to manually release all
+    // ties to the previous frame.  In order to not do that twice if we receive a timeout
+    // error we assign and check `has_frame`
     if self.has_frame {
       // Release frame memory and ignore error
       if self.desc.DesktopImageInSystemMemory.as_bool() {
@@ -107,25 +115,28 @@ impl DxgiDisplayCapturer {
       self.has_frame = false;
     }
 
+    // Get next frame
     match self.duplication.AcquireNextFrame(
       timeout.as_millis() as u32,
       &mut frame,
       &mut resource,
     ) {
-      // If `AcquireNextFrame` timeout hits return `WouldBlock` error
+      // If timeout expires before the next frame is ready return `WouldBlock` error
       result if result.0 == DXGI_ERROR_WAIT_TIMEOUT.0 => {
         return Err(FrameError::WouldBlock)
       }
       result => result.ok()?,
     };
 
-    // Indicate a frame needs to be released before calling `AcquireNextFrame`.
+    // Indicate a frame needs to be released before calling `AcquireNextFrame`
     self.has_frame = true;
 
     // Frame is already in system memory, map to `DXGI_MAPPED_RECT` and cast to slice
     if self.desc.DesktopImageInSystemMemory.as_bool() {
+      // Map surface to [`DXGI_MAPPED_RECT`]
       self.duplication.MapDesktopSurface(&mut self.rect).ok()?;
 
+      // Convert [`DXGI_MAPPED_RECT.pBits`] into [u8]
       let buf = self.rect.pBits;
       let len = (self.desc.ModeDesc.Height * self.rect.Pitch as u32) as usize;
       let buf = slice::from_raw_parts(buf, len);
@@ -133,6 +144,7 @@ impl DxgiDisplayCapturer {
       return Ok(DxgiFrame::new(buf, &self.duplication));
     }
 
+    // Convert frame [`IDXGIResource`] into [`ID3D11Texture2D`]
     if let Some(resource) = resource {
       let device = &self.device;
       let context = &self.context;
@@ -149,10 +161,7 @@ impl DxgiDisplayCapturer {
 #[cfg(test)]
 mod tests {
   use super::DxgiDisplayCapturer;
-  use crate::{
-    driver::dxgi::{display::DxgiDisplays, errors::FrameError},
-    Frame,
-  };
+  use crate::driver::dxgi::{display::DxgiDisplays, errors::FrameError};
   use std::time::Duration;
 
   #[test]
