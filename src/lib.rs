@@ -7,21 +7,22 @@ use errors::{DisplayError, FrameError};
 use std::borrow::Cow;
 
 pub trait Frame<'buf> {
-  fn dirty(&self) -> Vec<FrameRect>;
+  fn dirty(&self) -> Vec<DirtyRect>;
+  fn moved(&self) -> Vec<MovedRect>;
   fn format(&self) -> FrameFormat;
 
   fn as_bytes(&self) -> anyhow::Result<Cow<'buf, [u8]>>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FrameRect {
+pub struct DirtyRect {
   top: i32,
   left: i32,
   right: i32,
   bottom: i32,
 }
 
-impl FrameRect {
+impl DirtyRect {
   pub fn new(top: i32, right: i32, bottom: i32, left: i32) -> Self {
     Self {
       top,
@@ -29,6 +30,30 @@ impl FrameRect {
       right,
       bottom,
     }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MovedPoint {
+  x: i32,
+  y: i32,
+}
+
+impl MovedPoint {
+  pub fn new(x: i32, y: i32) -> Self {
+    Self { x, y }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MovedRect {
+  to: DirtyRect,
+  from: MovedPoint,
+}
+
+impl MovedRect {
+  pub fn new(to: DirtyRect, from: MovedPoint) -> Self {
+    Self { to, from }
   }
 }
 

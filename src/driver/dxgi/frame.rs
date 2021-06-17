@@ -1,14 +1,17 @@
 use crate::{
-  bindings::Windows::Win32::{Foundation::RECT, Graphics::Dxgi::IDXGIOutputDuplication},
+  bindings::Windows::Win32::{
+    Foundation::RECT,
+    Graphics::Dxgi::{IDXGIOutputDuplication, DXGI_OUTDUPL_MOVE_RECT},
+  },
   driver::dx11::frame::D3D11TextureFrameData,
-  Frame, FrameFormat, FrameRect,
+  DirtyRect, Frame, FrameFormat, MovedPoint, MovedRect,
 };
 use std::{borrow::Cow, cmp::min};
 
 #[derive(Debug, Clone)]
 pub struct DxgiFrame<'a> {
   data: DxgiFrameData<'a>,
-  dirty: Option<Vec<FrameRect>>,
+  dirty: Option<Vec<DirtyRect>>,
   duplication: &'a IDXGIOutputDuplication,
 }
 
@@ -30,8 +33,13 @@ impl<'a> DxgiFrame<'a> {
   }
 
   /// Get rectangles where pixels have changed since last frame
-  pub fn dirty(&self) -> Vec<FrameRect> {
-    unsafe { self.get_dirty() }
+  pub fn dirty(&self) -> Vec<DirtyRect> {
+    unsafe { self.get_dirty_rects() }
+  }
+
+  /// Get rectangles where pixels have moved since last frame
+  pub fn moved(&self) -> Vec<MovedRect> {
+    unsafe { self.get_moved_rects() }
   }
 
   /// Get pixel format of underlying data
@@ -69,7 +77,7 @@ impl<'a> DxgiFrame<'a> {
   /// At some point I may consider caching [`RECT`] buffer and translated [`FrameRect`]
   /// items in [`DxgiFrame`] but, for the time being I'll let the end user decide where and
   /// how data is stored (with the exception of the initial allocations ofc)
-  unsafe fn get_dirty(&self) -> Vec<FrameRect> {
+  unsafe fn get_dirty_rects(&self) -> Vec<DirtyRect> {
     // Default rectangle buffer size (comes out to 2KB)
     const RECT_BUF_LEN: usize = 16;
     // Maximum rectangle buffer size (comes out to ~1MB)
@@ -105,14 +113,68 @@ impl<'a> DxgiFrame<'a> {
     dirty
       .into_iter()
       .take(dirty_len as usize)
-      .map(|rect| FrameRect::new(rect.top, rect.right, rect.bottom, rect.left))
+      .map(|rect| DirtyRect::new(rect.top, rect.right, rect.bottom, rect.left))
+      .collect()
+  }
+
+  unsafe fn get_moved_rects(&self) -> Vec<MovedRect> {
+    // Default rectangle buffer size (comes out to 2KB)
+    const RECT_BUF_LEN: usize = 16;
+    // Maximum rectangle buffer size (comes out to ~1MB)
+    const RECT_BUF_MAX_LEN: usize = 7000 - RECT_BUF_LEN;
+
+    let mut moved = vec![DXGI_OUTDUPL_MOVE_RECT::default(); RECT_BUF_LEN];
+    let mut moved_len = 0;
+    let _ = self.duplication.GetFrameMoveRects(
+      moved.len() as _,
+      moved.as_mut_ptr(),
+      &mut moved_len,
+    );
+
+    let more = (moved_len as usize).saturating_sub(moved.len());
+    let more = min(RECT_BUF_MAX_LEN, more);
+
+    // `RECT_LEN` rectangles is not enough, try extending dirty
+    if more > 0 {
+      moved.extend_from_slice(&vec![DXGI_OUTDUPL_MOVE_RECT::default(); more]);
+
+      let _ = self.duplication.GetFrameMoveRects(
+        moved.len() as _,
+        moved.as_mut_ptr(),
+        &mut moved_len,
+      );
+    }
+
+    // I would _love_ if rust/llvm would optimize this away into a transparent type rather
+    // than looping over a structure and mapping it into a structure that looks exactly the
+    // same. I know Quartz, x11, and Wayland will have different definitions so we need a
+    // generic type that will handle this and I _really_ don't want to add another nested
+    // type definition to the trait tree for [`Frame`].
+    moved
+      .into_iter()
+      .take(moved_len as usize)
+      .map(|moved| {
+        MovedRect::new(
+          DirtyRect::new(
+            moved.DestinationRect.top,
+            moved.DestinationRect.right,
+            moved.DestinationRect.bottom,
+            moved.DestinationRect.left,
+          ),
+          MovedPoint::new(moved.SourcePoint.x, moved.SourcePoint.y),
+        )
+      })
       .collect()
   }
 }
 
 impl<'frame> Frame<'frame> for DxgiFrame<'frame> {
-  fn dirty(&self) -> Vec<FrameRect> {
+  fn dirty(&self) -> Vec<DirtyRect> {
     self.dirty()
+  }
+
+  fn moved(&self) -> Vec<MovedRect> {
+    self.moved()
   }
 
   fn format(&self) -> FrameFormat {

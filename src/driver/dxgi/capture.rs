@@ -69,22 +69,13 @@ impl DxgiDisplayCapturer {
 
     duplication.GetDesc(&mut desc);
 
-    // Pre-load frame to allow for `ReleaseFrame` on subsequent calls to `get_frame`
-    let mut frame = DXGI_OUTDUPL_FRAME_INFO::default();
-    let mut resource = None;
-
-    duplication
-      .AcquireNextFrame(0, &mut frame, &mut resource)
-      .ok()
-      .map_err(FrameError::AcquireFrame)?;
-
     Ok(Self {
       rect: DXGI_MAPPED_RECT::default(),
       desc,
       device,
       context,
       duplication,
-      has_frame: true,
+      has_frame: false,
     })
   }
 
@@ -158,7 +149,10 @@ impl DxgiDisplayCapturer {
 #[cfg(test)]
 mod tests {
   use super::DxgiDisplayCapturer;
-  use crate::{driver::dxgi::display::DxgiDisplays, Frame};
+  use crate::{
+    driver::dxgi::{display::DxgiDisplays, errors::FrameError},
+    Frame,
+  };
   use std::time::Duration;
 
   #[test]
@@ -169,10 +163,16 @@ mod tests {
       let mut capturer = DxgiDisplayCapturer::new(&display).unwrap();
 
       for _ in 0..10 {
-        let frame = capturer.get_frame(Duration::from_millis(16)).unwrap();
+        let frame = capturer.get_frame(Duration::from_millis(16));
+        let frame = match frame {
+          Ok(frame) => frame,
+          Err(FrameError::WouldBlock) => continue,
+          Err(err) => panic!("{:?}", err),
+        };
 
         let frame_buf = frame.as_bytes().unwrap();
         let _ = frame.dirty();
+        let _ = frame.moved();
 
         assert!(frame_buf.len() > 0);
       }
