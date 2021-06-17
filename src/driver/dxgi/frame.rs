@@ -3,7 +3,7 @@ use crate::{
     Foundation::RECT,
     Graphics::Dxgi::{IDXGIOutputDuplication, DXGI_OUTDUPL_MOVE_RECT},
   },
-  driver::dx11::frame::D3D11TextureFrameData,
+  driver::dx11::frame::Dx11FrameData,
   DirtyRect, Frame, FrameFormat, MovedPoint, MovedRect,
 };
 use std::{borrow::Cow, cmp::min};
@@ -189,7 +189,7 @@ impl<'frame> Frame<'frame> for DxgiFrame<'frame> {
 #[derive(Debug, Clone)]
 pub enum DxgiFrameData<'frame> {
   Memory(&'frame [u8]),
-  DirectX(D3D11TextureFrameData<'frame>),
+  DirectX(Dx11FrameData<'frame>),
 }
 
 impl<'frame> From<&'frame [u8]> for DxgiFrameData<'frame> {
@@ -198,8 +198,8 @@ impl<'frame> From<&'frame [u8]> for DxgiFrameData<'frame> {
   }
 }
 
-impl<'frame> From<D3D11TextureFrameData<'frame>> for DxgiFrameData<'frame> {
-  fn from(data: D3D11TextureFrameData<'frame>) -> Self {
+impl<'frame> From<Dx11FrameData<'frame>> for DxgiFrameData<'frame> {
+  fn from(data: Dx11FrameData<'frame>) -> Self {
     Self::DirectX(data)
   }
 }

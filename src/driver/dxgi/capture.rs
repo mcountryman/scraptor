@@ -13,7 +13,7 @@ use crate::{
       },
     },
   },
-  driver::dx11::frame::D3D11TextureFrameData,
+  driver::dx11::frame::Dx11FrameData,
 };
 use std::{slice, time::Duration};
 use windows::Interface;
@@ -137,7 +137,7 @@ impl DxgiDisplayCapturer {
       let device = &self.device;
       let context = &self.context;
       let texture = resource.cast()?;
-      let texture = D3D11TextureFrameData::new(device, context, texture);
+      let texture = Dx11FrameData::new(device, context, texture);
 
       Ok(DxgiFrame::new(texture, &self.duplication))
     } else {

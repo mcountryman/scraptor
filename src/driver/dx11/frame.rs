@@ -9,13 +9,13 @@ use std::slice;
 use windows::Interface;
 
 #[derive(Debug, Clone)]
-pub struct D3D11TextureFrameData<'frame> {
+pub struct Dx11FrameData<'frame> {
   device: &'frame ID3D11Device,
   context: &'frame ID3D11DeviceContext,
   texture: ID3D11Texture2D,
 }
 
-impl<'frame> D3D11TextureFrameData<'frame> {
+impl<'frame> Dx11FrameData<'frame> {
   pub fn new(
     device: &'frame ID3D11Device,
     context: &'frame ID3D11DeviceContext,
