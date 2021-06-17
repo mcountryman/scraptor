@@ -1,5 +1,5 @@
 use crate::{
-  bindings::Windows::Win32::{
+  driver::bindings::Windows::Win32::{
     Foundation::RECT,
     Graphics::Dxgi::{IDXGIOutputDuplication, DXGI_OUTDUPL_MOVE_RECT},
   },

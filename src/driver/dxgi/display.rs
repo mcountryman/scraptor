@@ -1,6 +1,6 @@
 use super::{capture::DxgiDisplayCapturer, frame::DxgiFrame};
 use crate::{
-  bindings::Windows::Win32::Graphics::Dxgi::{
+  driver::bindings::Windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1, DXGI_ERROR_NOT_FOUND,
     DXGI_OUTPUT_DESC,
   },

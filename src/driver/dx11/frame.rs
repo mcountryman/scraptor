@@ -1,4 +1,4 @@
-use crate::bindings::Windows::Win32::Graphics::{
+use crate::driver::bindings::Windows::Win32::Graphics::{
   Direct3D11::{
     ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_CPU_ACCESS_READ,
     D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,

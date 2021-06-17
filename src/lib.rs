@@ -1,5 +1,3 @@
-#[cfg(target_os = "windows")]
-pub mod bindings;
 pub mod driver;
 pub mod errors;
 

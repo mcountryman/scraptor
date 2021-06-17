@@ -1,6 +1,6 @@
 use super::{display::DxgiDisplay, errors::FrameError, frame::DxgiFrame};
 use crate::{
-  bindings::Windows::Win32::{
+  driver::bindings::Windows::Win32::{
     Foundation::HINSTANCE,
     Graphics::{
       Direct3D11::{
