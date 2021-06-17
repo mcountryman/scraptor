@@ -8,4 +8,6 @@ pub enum FrameError {
   ReleaseFrame(windows::Error),
   #[error("Unexpected error `{0}`")]
   Unexpected(#[from] windows::Error),
+  #[error("Failed to initialize resource")]
+  None,
 }

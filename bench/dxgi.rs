@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use scraptor::{driver::dxgi::display::DxgiDisplays, errors::FrameError, Display};
+use scraptor::{driver::dxgi::display::DxgiDisplays, errors::FrameError, Display, Frame};
 
 pub fn bench(c: &mut Criterion) {
   c.bench_function("frame", |b| {

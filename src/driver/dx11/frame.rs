@@ -9,13 +9,13 @@ use std::slice;
 use windows::Interface;
 
 #[derive(Debug, Clone)]
-pub struct D3D11TextureFrame<'frame> {
+pub struct D3D11TextureFrameData<'frame> {
   device: &'frame ID3D11Device,
   context: &'frame ID3D11DeviceContext,
   texture: ID3D11Texture2D,
 }
 
-impl<'frame> D3D11TextureFrame<'frame> {
+impl<'frame> D3D11TextureFrameData<'frame> {
   pub fn new(
     device: &'frame ID3D11Device,
     context: &'frame ID3D11DeviceContext,
@@ -28,23 +28,23 @@ impl<'frame> D3D11TextureFrame<'frame> {
     }
   }
 
-  pub fn as_bytes(&self) -> anyhow::Result<&'frame [u8]> {
+  pub fn get_bytes(&self) -> anyhow::Result<Vec<u8>> {
     let mut rect = DXGI_MAPPED_RECT::default();
     let mut desc = D3D11_TEXTURE2D_DESC::default();
     let data = unsafe {
       self.texture.GetDesc(&mut desc);
-      self.as_surface()?.Map(&mut rect, DXGI_MAP_READ).ok()?;
+      self.get_surface()?.Map(&mut rect, DXGI_MAP_READ).ok()?;
 
       let len = desc.Height as usize * rect.Pitch as usize;
       let data = rect.pBits;
 
-      slice::from_raw_parts(data, len)
+      slice::from_raw_parts(data, len).to_vec()
     };
 
     Ok(data)
   }
 
-  unsafe fn as_surface(&self) -> anyhow::Result<IDXGISurface> {
+  unsafe fn get_surface(&self) -> anyhow::Result<IDXGISurface> {
     let mut texture_desc = D3D11_TEXTURE2D_DESC::default();
 
     self.texture.GetDesc(&mut texture_desc);

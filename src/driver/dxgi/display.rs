@@ -1,11 +1,10 @@
-use super::capture::DxgiDisplayCapturer;
+use super::{capture::DxgiDisplayCapturer, frame::DxgiFrame};
 use crate::{
   bindings::Windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1, DXGI_ERROR_NOT_FOUND,
     DXGI_OUTPUT_DESC,
   },
   errors::{DisplayError, FrameError},
-  frame::Frame,
   Display,
 };
 use std::{hint::unreachable_unchecked, time::Duration};
@@ -32,7 +31,9 @@ impl DxgiDisplay {
     (self.desc.DesktopCoordinates.bottom - self.desc.DesktopCoordinates.top) as usize
   }
 
-  unsafe fn capturer_mut(&mut self) -> Result<&mut DxgiDisplayCapturer, FrameError> {
+  unsafe fn capturer_mut<'a, 'b: 'a>(
+    &'b mut self,
+  ) -> Result<&'a mut DxgiDisplayCapturer, FrameError> {
     if self.capturer.is_none() {
       self.capturer = Some(DxgiDisplayCapturer::new(self).unwrap());
     }
@@ -46,7 +47,9 @@ impl DxgiDisplay {
   }
 }
 
-impl Display for DxgiDisplay {
+impl<'frame> Display<'frame> for DxgiDisplay {
+  type Frame = DxgiFrame<'frame>;
+
   fn width(&self) -> Result<usize, DisplayError> {
     Ok(self.width())
   }
@@ -55,7 +58,7 @@ impl Display for DxgiDisplay {
     Ok(self.height())
   }
 
-  fn frame(&mut self) -> Result<Frame<'_>, FrameError> {
+  fn frame(&'frame mut self) -> Result<Self::Frame, FrameError> {
     // ~124fps to give windows a little time to prepare a frame for us.
     const FPS_124: u64 = 8;
 
