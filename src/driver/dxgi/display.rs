@@ -1,22 +1,22 @@
+use super::capture::DxgiDisplayCapturer;
 use crate::{
+  bindings::Windows::Win32::Graphics::Dxgi::{
+    CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory1, IDXGIOutput1, DXGI_ERROR_NOT_FOUND,
+    DXGI_OUTPUT_DESC,
+  },
   errors::{DisplayError, FrameError},
-  DisplayDriver, DisplayHandle, Frame,
+  frame::Frame,
+  Display,
 };
-
-mod bindings {
-  windows::include_bindings!();
-}
-
-use bindings::Windows::Win32::Graphics::Dxgi::*;
-
-#[derive(Debug, Clone)]
-pub struct Dxgi;
+use std::{hint::unreachable_unchecked, time::Duration};
+use windows::Interface;
 
 #[derive(Debug, Clone)]
 pub struct DxgiDisplay {
-  desc: DXGI_OUTPUT_DESC,
-  output: IDXGIOutput,
-  adapter: IDXGIAdapter1,
+  pub(super) desc: DXGI_OUTPUT_DESC,
+  pub(super) output: IDXGIOutput1,
+  pub(super) adapter: IDXGIAdapter1,
+  pub(super) capturer: Option<DxgiDisplayCapturer>,
 }
 
 impl DxgiDisplay {
@@ -24,12 +24,46 @@ impl DxgiDisplay {
     String::from_utf16_lossy(&self.desc.DeviceName)
   }
 
-  pub fn width(&self) -> usize {
+  pub const fn width(&self) -> usize {
     (self.desc.DesktopCoordinates.right - self.desc.DesktopCoordinates.left) as usize
   }
 
-  pub fn height(&self) -> usize {
+  pub const fn height(&self) -> usize {
     (self.desc.DesktopCoordinates.bottom - self.desc.DesktopCoordinates.top) as usize
+  }
+
+  unsafe fn capturer_mut(&mut self) -> Result<&mut DxgiDisplayCapturer, FrameError> {
+    if self.capturer.is_none() {
+      self.capturer = Some(DxgiDisplayCapturer::new(self).unwrap());
+    }
+
+    match &mut self.capturer {
+      Some(capturer) => Ok(capturer),
+      // SAFETY: a `None` variant for `self` would have been replaced by a `Some`
+      // variant in the code above.
+      None => unreachable_unchecked(),
+    }
+  }
+}
+
+impl Display for DxgiDisplay {
+  fn width(&self) -> Result<usize, DisplayError> {
+    Ok(self.width())
+  }
+
+  fn height(&self) -> Result<usize, DisplayError> {
+    Ok(self.height())
+  }
+
+  fn frame(&mut self) -> Result<Frame<'_>, FrameError> {
+    // ~124fps to give windows a little time to prepare a frame for us.
+    const FPS_124: u64 = 8;
+
+    Ok(unsafe {
+      self
+        .capturer_mut()?
+        .get_frame(Duration::from_millis(FPS_124))?
+    })
   }
 }
 
@@ -102,8 +136,9 @@ impl DxgiDisplays {
 
             Ok(Some(DxgiDisplay {
               desc,
+              output: output.cast()?,
               adapter: adapter.clone(),
-              output,
+              capturer: None,
             }))
           }
         }
@@ -117,34 +152,6 @@ impl Iterator for DxgiDisplays {
 
   fn next(&mut self) -> Option<Self::Item> {
     unsafe { self.next_display() }.transpose()
-  }
-}
-
-impl Dxgi {}
-
-impl DisplayDriver for Dxgi {
-  fn name(&self) -> &'static str {
-    "dxgi"
-  }
-
-  fn get_all(&self) -> Result<Vec<DisplayHandle>, DisplayError> {
-    todo!()
-  }
-
-  fn get_primary(&self) -> Result<Option<DisplayHandle>, DisplayError> {
-    todo!()
-  }
-
-  fn get_display_frame(&self, _: DisplayHandle) -> Result<Frame<'_>, FrameError> {
-    todo!()
-  }
-
-  fn get_display_width(&self, _: DisplayHandle) -> Result<usize, DisplayError> {
-    todo!()
-  }
-
-  fn get_display_height(&self, _: DisplayHandle) -> Result<usize, DisplayError> {
-    todo!()
   }
 }
 
@@ -166,7 +173,4 @@ mod tests {
       );
     }
   }
-
-  #[test]
-  fn test_get_all() {}
 }
