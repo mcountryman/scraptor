@@ -1,6 +1,9 @@
 pub mod driver;
 pub mod errors;
 
+#[cfg(target_os = "windows")]
+pub mod bindings;
+
 use errors::{DisplayError, FrameError};
 use std::borrow::Cow;
 

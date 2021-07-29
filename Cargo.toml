@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2018"
 description = "A cross platform screen capture crate intended for low-latency video streaming"
 
+[profile.release]
+debug = true
+
 [dependencies]
 # errors
 anyhow = "1.0"
@@ -13,6 +16,8 @@ thiserror = "1.0"
 windows = "0.11.0"
 
 [dev-dependencies]
+vpx = "0.3"
+crossterm = "0.20"
 criterion = "0.3"
 
 [build-dependencies]

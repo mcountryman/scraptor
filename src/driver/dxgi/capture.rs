@@ -2,7 +2,7 @@
 
 use super::{display::DxgiDisplay, errors::FrameError, frame::DxgiFrame};
 use crate::{
-  driver::bindings::Windows::Win32::{
+  bindings::Windows::Win32::{
     Foundation::HINSTANCE,
     Graphics::{
       Direct3D11::{

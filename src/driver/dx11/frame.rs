@@ -1,4 +1,4 @@
-use crate::driver::bindings::Windows::Win32::Graphics::{
+use crate::bindings::Windows::Win32::Graphics::{
   Direct3D11::{
     ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_CPU_ACCESS_READ,
     D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
@@ -28,7 +28,7 @@ impl<'frame> Dx11FrameData<'frame> {
     }
   }
 
-  pub fn get_bytes(&self) -> anyhow::Result<Vec<u8>> {
+  pub fn get_bytes(&self) -> anyhow::Result<&'frame [u8]> {
     let mut rect = DXGI_MAPPED_RECT::default();
     let mut desc = D3D11_TEXTURE2D_DESC::default();
     let data = unsafe {
@@ -38,7 +38,7 @@ impl<'frame> Dx11FrameData<'frame> {
       let len = desc.Height as usize * rect.Pitch as usize;
       let data = rect.pBits;
 
-      slice::from_raw_parts(data, len).to_vec()
+      slice::from_raw_parts(data, len)
     };
 
     Ok(data)
